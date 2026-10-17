@@ -4,8 +4,9 @@ Java 25 / Spring Boot 4.0.8 modular monolith for an AI-assisted small-business b
 
 ## Current scope
 
-Project foundation and validated REST DTO contracts only. Order controllers, business logic,
-JPA entities, AI adapters and authentication are intentionally pending our step-by-step implementation.
+Project foundation, validated REST DTO contracts and initial draft JPA entities.
+Order controllers, business logic, table migrations, AI adapters and authentication are pending.
+**Entity step:** the application needs the upcoming V2 migration before it can start against PostgreSQL.
 No business API endpoints exist yet. `/actuator/health` is available when the application starts.
 
 ## Run locally

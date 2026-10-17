@@ -31,3 +31,14 @@
 7. JWT authentication and business membership before real-user deployment.
 
 The October 26 hackathon milestone is a planning assumption pending official requirements.
+
+## Entity step
+
+OrderDraft and OrderDraftItem are now mapped JPA entities in order.persistence. DraftCustomer and
+DraftDelivery are embedded snapshots. The collection retains item order and cascades persistence.
+Business IDs are supplied by the server-side service, never copied from a request.
+Update and confirmation methods are deferred until their business rules are implemented.
+
+The V2 table migration is the next step. Until then, tests compile and run without a database,
+but application startup against PostgreSQL will fail schema validation for the missing tables.
+JPA round-trip and concurrency behavior require PostgreSQL integration tests with that migration.
