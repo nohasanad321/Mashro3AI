@@ -61,6 +61,18 @@ public class OrderDraft {
         updatedAt = Instant.now();
     }
 
+    public void replace(DraftCustomer customer, DraftDelivery delivery, String currency, String notes) {
+        if (status != DraftStatus.DRAFT) throw new IllegalStateException("Draft is already confirmed");
+        this.customer = customer; this.delivery = delivery; this.currency = currency; this.notes = notes;
+        items.clear(); updatedAt = Instant.now();
+    }
+
+    public void confirm(UUID orderId) {
+        if (status != DraftStatus.DRAFT) throw new IllegalStateException("Draft is already confirmed");
+        confirmedOrderId = Objects.requireNonNull(orderId); status = DraftStatus.CONFIRMED;
+        updatedAt = Instant.now();
+    }
+
     @PrePersist
     void beforeInsert() {
         Instant now = Instant.now();

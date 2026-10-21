@@ -5,7 +5,7 @@
 - AI providers sit behind an application interface; provider output never becomes the public DTO contract.
 - Model calls occur outside database transactions, with explicit timeouts. No AI SDK chosen yet.
 - AI extracts drafts; seller review precedes confirmation. Missing values remain null.
-- Drafts allow incomplete customer, delivery and item details. Confirmation rules are implemented in the domain later.
+- Drafts allow incomplete customer, delivery and item details. Confirmation completeness rules currently live in OrderDraftService.
 - All business-owned records carry businessId. Repositories must scope every query to the current business.
 - CurrentBusinessProvider currently has a local-only configured implementation. JWT phase adds Spring Security
   token validation and business-membership authorization. Client-provided business IDs are never trusted.
@@ -37,8 +37,17 @@ The October 26 hackathon milestone is a planning assumption pending official req
 OrderDraft and OrderDraftItem are now mapped JPA entities in order.persistence. DraftCustomer and
 DraftDelivery are embedded snapshots. The collection retains item order and cascades persistence.
 Business IDs are supplied by the server-side service, never copied from a request.
-Update and confirmation methods are deferred until their business rules are implemented.
+Draft replacement and confirmation are implemented. Confirmed drafts reject further changes.
 
-The V2 table migration is the next step. Until then, tests compile and run without a database,
-but application startup against PostgreSQL will fail schema validation for the missing tables.
-JPA round-trip and concurrency behavior require PostgreSQL integration tests with that migration.
+V2 creates draft, item and confirmed-order tables. ConfirmedOrder references an immutable confirmed draft,
+whose owned customer, delivery and item values are the order snapshot; the confirmed draft cannot be edited.
+Unique draft_id prevents duplicate confirmed orders, and optimistic locking protects competing edits.
+H2 integration tests execute the migrations and validate mappings and the workflow. PostgreSQL and
+concurrent request behavior should also be verified in the deployment environment.
+
+## Current demonstration
+
+The local demo implements manual drafts, deterministic labelled-text extraction behind OrderExtractionPort,
+review/update, clarification text, confirmation, order retrieval and pagination, plus a browser screen.
+A real AI provider, natural-language dates and Arabic parsing remain pending. Parser results pass DTO
+validation before persistence, and the original source message is retained across edits.

@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mashro3 AI · Order desk</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f5f3ee;color:#222c3d;font:16px system-ui,sans-serif}main{max-width:1100px;margin:auto;padding:40px 24px}header{margin-bottom:28px}h1{font-size:36px;margin:6px 0}p{line-height:1.6}.tag{font-size:13px;letter-spacing:2px;color:#965534}.grid{display:grid;grid-template-columns:1fr 1fr;gap:22px}section{background:white;border:1px solid #e4e0d7;border-radius:18px;padding:24px}textarea{width:100%;min-height:320px;padding:15px;border:1px solid #b9c2cb;border-radius:9px;font:14px/1.6 monospace;resize:vertical}button{background:#263d60;color:white;border:0;border-radius:8px;padding:12px 18px;margin:12px 5px 0 0;cursor:pointer}button:disabled{opacity:.45;cursor:default}label{display:block;font-weight:600;margin-bottom:12px}.notice{background:#fff2d9;padding:12px 16px;border-radius:9px}#status{white-space:pre-wrap;overflow-wrap:anywhere;min-height:48px}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px}.wide{margin-top:22px}small{color:#596575}@media(max-width:750px){.grid{grid-template-columns:1fr}main{padding:24px 15px}}
+</style><main><header><div class="tag">MASHRO3 AI / مشروعي</div><h1>Your next order, organized.</h1><p>Capture a request. Review the details. Save a confirmed order.</p><p class="notice">Local demo · Extraction uses labelled text, not an AI model. Use synthetic customer data.</p></header>
+<div class="grid"><section><label for="message">1. Customer request</label><textarea id="message" spellcheck="false"></textarea><button id="extract">Extract draft</button><p><small>Supported labels: name, phone, email, method, area, address, date. Repeat item lines using description | quantity | unit price. Blank values stay unknown.</small></p></section>
+<section><label for="editor">2. Review and correct</label><textarea id="editor" spellcheck="false" placeholder="Your editable draft appears here"></textarea><button id="save" disabled>Save changes</button><button id="reload" disabled>Reload saved draft</button><button id="confirm" disabled>Confirm order</button><p><small>Edit the JSON fields, then save before confirming. A date uses YYYY-MM-DD. Prices are in KWD.</small></p></section></div>
+<section class="wide" aria-live="polite"><strong id="heading">Ready for your first draft</strong><p id="status">Extract the sample to begin. The sample deliberately omits the address: add one during review.</p><pre id="result"></pre><button id="order" hidden>Reload confirmed order</button></section></main>
+<script>
+const $=id=>document.getElementById(id);let draft=null,orderId=null,busy=false;
+const date=new Date(Date.now()+86400000).toISOString().slice(0,10);
+$('message').value=`Name: Demo Customer
+Phone: 55500000
+Method: DELIVERY
+Area: Salmiya
+Date: ${date}
+Item: Cookie box | 2 | 4.500
+Item: Brownie box | 1 | 3.250`;
+async function api(path,method='GET',body){const r=await fetch('/api/v1/'+path,{method,headers:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});const data=await r.json();if(!r.ok)throw new Error(JSON.stringify(data,null,2));return data;}
+function controls(){for(const id of ['extract','save','reload','confirm','order'])$(id).disabled=busy||(id!=='extract'&&!draft)||(id==='save'&&draft?.status==='CONFIRMED')||(id==='confirm'&&draft?.status==='CONFIRMED');}
+async function action(fn){busy=true;controls();try{await fn();}catch(e){$('heading').textContent='Please check the request';$('status').textContent=e.message;}finally{busy=false;controls();}}
+function editable(){return {version:draft.version,customer:draft.customer,delivery:draft.delivery,items:draft.items,currency:draft.currency,notes:draft.notes};}
+function show(d){draft=d;localStorage.setItem('mashro3DemoDraft',d.id);$('editor').value=JSON.stringify(editable(),null,2);$('heading').textContent=d.status==='CONFIRMED'?'Order confirmed':'Draft saved';$('status').textContent=`Draft ${d.id} · version ${d.version}
+`+(d.missingFields.length?'Still needed: '+d.missingFields.map(f=>f.path).join(', '):'All required details are present. Ready to confirm.');$('result').textContent='';if(d.confirmedOrderId){orderId=d.confirmedOrderId;$('order').hidden=false;}else{orderId=null;$('order').hidden=true;}}
+$('extract').onclick=()=>action(async()=>show(await api('order-drafts/extract','POST',{message:$('message').value})));
+$('save').onclick=()=>action(async()=>show(await api('order-drafts/'+draft.id,'PUT',JSON.parse($('editor').value))));
+$('reload').onclick=()=>action(async()=>show(await api('order-drafts/'+draft.id)));
+$('confirm').onclick=()=>action(async()=>{if(JSON.stringify(JSON.parse($('editor').value))!==JSON.stringify(editable()))throw new Error('Save your edits before confirming.');const o=await api('order-drafts/'+draft.id+'/confirm','POST',{expectedVersion:draft.version});show(await api('order-drafts/'+draft.id));$('heading').textContent='Order confirmed · '+o.total.toFixed(3)+' '+o.currency;$('result').textContent=JSON.stringify(o,null,2);});
+$('order').onclick=()=>action(async()=>{$('result').textContent=JSON.stringify(await api('orders/'+orderId),null,2);$('heading').textContent='Confirmed order reloaded from the database';});
+const saved=localStorage.getItem('mashro3DemoDraft');if(saved)action(async()=>show(await api('order-drafts/'+saved)));
+</script></html>

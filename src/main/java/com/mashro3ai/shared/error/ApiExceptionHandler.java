@@ -18,5 +18,12 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
             .map(error -> new FieldError(error.getField(), error.getDefaultMessage())).toList());
         return handleExceptionInternal(ex, problem, headers, status, request);
     }
+    @org.springframework.web.bind.annotation.ExceptionHandler({
+        org.springframework.dao.OptimisticLockingFailureException.class,
+        org.springframework.dao.DataIntegrityViolationException.class})
+    public ResponseEntity<ProblemDetail> conflict(Exception ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ProblemDetail.forStatusAndDetail(
+            HttpStatus.CONFLICT, "The draft changed concurrently. Reload it and retry."));
+    }
     public record FieldError(String field, String message) {}
 }
