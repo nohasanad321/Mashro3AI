@@ -8,9 +8,24 @@ With JDK 25 and Docker Desktop installed, run from the project root:
 
 ```powershell
 docker compose up -d
+```
+
+Before the first run, create the demo database once (skip if it already exists):
+
+```powershell
+docker compose exec postgres createdb -U mashro3ai mashro3ai_demo
+```
+
+Then build and start:
+
+```powershell
 .\mvnw.cmd clean test
 .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"
 ```
+
+The local profile defaults to `mashro3ai_demo`, so it also works from a new terminal.
+`DB_URL` can override that default. Existing data in the original `mashro3ai` database
+is untouched; do not repair or rewrite its migration history to run this demo.
 
 Open **http://localhost:8080/**. The local profile binds to loopback. Flyway creates
 and validates the draft and order tables automatically, including the new V2 migration.
