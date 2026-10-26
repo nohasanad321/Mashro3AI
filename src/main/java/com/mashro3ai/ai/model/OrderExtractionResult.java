@@ -12,6 +12,10 @@ public record OrderExtractionResult(
     public record CustomerCandidate(String name, String phone, String email) {}
     public record DeliveryCandidate(String method, String area, String address,
                                     LocalDate requestedDate, String originalDateText, String notes) {}
-    public record ItemCandidate(String description, Integer quantity, BigDecimal unitPrice, String notes) {}
+    public record ItemCandidate(String description, Integer quantity, BigDecimal unitPrice, String notes, String sku) {
+        public ItemCandidate(String description, Integer quantity, BigDecimal unitPrice, String notes) {
+            this(description, quantity, unitPrice, notes, null);
+        }
+    }
     public record Warning(String code, String path, String message) {}
 }

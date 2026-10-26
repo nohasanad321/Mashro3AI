@@ -20,6 +20,8 @@ public class OrderDraft {
     private DraftStatus status;
     @Column(name = "source_message", length = 10000)
     private String sourceMessage;
+    @Column(name = "extraction_warnings", length = 12000)
+    private String extractionWarnings;
     @Embedded
     private DraftCustomer customer;
     @Embedded
@@ -86,6 +88,8 @@ public class OrderDraft {
     public Long getVersion() { return version; }
     public DraftStatus getStatus() { return status; }
     public String getSourceMessage() { return sourceMessage; }
+    public String getExtractionWarnings() { return extractionWarnings; }
+    public void setExtractionWarnings(String warnings) { extractionWarnings = warnings; }
     public DraftCustomer getCustomer() { return customer; }
     public DraftDelivery getDelivery() { return delivery; }
     public List<OrderDraftItem> getItems() { return Collections.unmodifiableList(items); }

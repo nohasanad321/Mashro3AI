@@ -33,5 +33,7 @@ build/
 .vscode/
 
 .env
+data/
+*.log
 .env.*
 !.env.example

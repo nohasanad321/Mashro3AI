@@ -23,7 +23,11 @@ public class OrderDraftService {
     }
     public OrderDraftResponse create(CreateOrderDraftRequest r) { return create(r, null); }
     public OrderDraftResponse create(CreateOrderDraftRequest r, String source) {
+        return create(r, source, List.of());
+    }
+    public OrderDraftResponse create(CreateOrderDraftRequest r, String source, List<ExtractionWarningDto> warnings) {
         var d=new OrderDraft(business.currentBusinessId(),r.currency(),source,customer(r.customer()),delivery(r.delivery()),r.notes());
+        d.setExtractionWarnings(new tools.jackson.databind.json.JsonMapper().writeValueAsString(warnings));
         addItems(d,r.items()); drafts.saveAndFlush(d); return response(d);
     }
     @Transactional(readOnly=true)
@@ -64,6 +68,40 @@ public class OrderDraftService {
         var fields=missing(find(id));
         return new ClarificationResponse(id,fields.isEmpty()?"Thank you. Your order details are complete.":"Please provide: "+String.join(", ",fields.stream().map(MissingFieldDto::path).toList())+".",fields.stream().map(MissingFieldDto::path).toList());
     }
+    @Transactional(readOnly=true)
+    public DraftPage listDrafts(int page, int size) {
+        if(page < 0 || size < 1 || size > 100) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"page must be >= 0 and size must be 1–100");
+        var result = drafts.findByBusinessId(business.currentBusinessId(), PageRequest.of(page, size, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"))));
+        return new DraftPage(result.stream().map(OrderDraftService::response).toList(), page, size, result.getTotalElements(), result.getTotalPages());
+    }
+    public record DraftPage(List<OrderDraftResponse> content, int page, int size, long totalElements, int totalPages) {}
+
+    @Transactional(readOnly=true)
+    public ClarificationResponse clarification(UUID id, String language) {
+        var fields = missing(find(id));
+        boolean arabic = "ar".equals(language);
+        var labels = Map.ofEntries(
+            Map.entry("customer.name", arabic ? "اسم العميل" : "your name"),
+            Map.entry("customer.phone", arabic ? "رقم الهاتف" : "your phone number"),
+            Map.entry("delivery.method", arabic ? "التوصيل أم الاستلام" : "delivery or pickup"),
+            Map.entry("delivery.area", arabic ? "منطقة التوصيل" : "delivery area"),
+            Map.entry("delivery.address", arabic ? "عنوان التوصيل بالتفصيل" : "full delivery address"),
+            Map.entry("delivery.requestedDate", arabic ? "تاريخ التوصيل أو الاستلام" : "delivery or pickup date"),
+            Map.entry("items", arabic ? "المنتجات المطلوبة" : "the products you would like"));
+        // Prices are owner-only fields; never ask the customer to supply catalogue prices.
+        var customerFields = fields.stream().filter(f -> !f.path().endsWith("unitPrice")).toList();
+        String text = customerFields.isEmpty()
+            ? (arabic ? "شكراً! سنراجع طلبك ونؤكد التفاصيل قريباً." : "Thank you! We will review your order and confirm the details shortly.")
+            : (arabic ? "أهلاً! لإكمال طلبك، ممكن ترسل لنا: " : "Hi! To complete your order, please send: ")
+                + String.join(arabic ? "، " : ", ", customerFields.stream().map(f -> labels.getOrDefault(f.path(),
+                    f.path().endsWith("quantity") ? (arabic ? "الكمية المطلوبة للصنف " : "quantity for item ") + (itemIndex(f.path()) + 1)
+                    : (arabic ? "وصف الصنف " : "description for item ") + (itemIndex(f.path()) + 1))).toList()) + ".";
+        return new ClarificationResponse(id, text, customerFields.stream().map(MissingFieldDto::path).toList());
+    }
+    private static int itemIndex(String path) {
+        var matcher = java.util.regex.Pattern.compile("items\\[(\\d+)\\]").matcher(path);
+        return matcher.find() ? Integer.parseInt(matcher.group(1)) : 0;
+    }
     private OrderDraft find(UUID id) {
         return drafts.findByIdAndBusinessId(id,business.currentBusinessId()).orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Draft not found"));
     }
@@ -96,7 +134,9 @@ public class OrderDraftService {
     }
     private static OrderDraftResponse response(OrderDraft d) {
         var c=d.getCustomer(); var v=d.getDelivery();
-        var warnings=d.getSourceMessage()==null?List.<ExtractionWarningDto>of():List.of(new ExtractionWarningDto("DEMO_PARSER","sourceMessage","Local structured-text parser, not an AI model. Review every field."));
+        var warnings=d.getExtractionWarnings()==null
+            ? (d.getSourceMessage()==null?List.<ExtractionWarningDto>of():List.of(new ExtractionWarningDto("DEMO_PARSER","sourceMessage","Legacy demo parser. Review every field.")))
+            : List.of(new tools.jackson.databind.json.JsonMapper().readValue(d.getExtractionWarnings(), ExtractionWarningDto[].class));
         return new OrderDraftResponse(d.getId(),d.getBusinessId(),d.getVersion(),d.getStatus(),d.getSourceMessage(),
             c==null?null:new CustomerDetailsDto(c.getName(),c.getPhone(),c.getEmail()),
             v==null?null:new DeliveryDetailsDto(v.getMethod(),v.getArea(),v.getAddress(),v.getRequestedDate(),v.getOriginalDateText(),v.getNotes()),

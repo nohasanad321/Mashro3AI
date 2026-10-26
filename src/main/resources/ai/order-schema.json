@@ -1,0 +1,16 @@
+{
+  "type":"object", "additionalProperties":false,
+  "required":["customer","delivery","items"],
+  "properties":{
+    "customer":{"type":"object","additionalProperties":false,"required":["name","phone","email"],"properties":{
+      "name":{"type":["string","null"]},"phone":{"type":["string","null"]},"email":{"type":["string","null"]}
+    }},
+    "delivery":{"type":"object","additionalProperties":false,"required":["method","area","address","requestedDate","originalDateText","notes"],"properties":{
+      "method":{"enum":["DELIVERY","PICKUP",null]},"area":{"type":["string","null"]},"address":{"type":["string","null"]},
+      "requestedDate":{"type":["string","null"]},"originalDateText":{"type":["string","null"]},"notes":{"type":["string","null"]}
+    }},
+    "items":{"type":"array","maxItems":100,"items":{"type":"object","additionalProperties":false,"required":["sku","description","quantity","notes"],"properties":{
+      "sku":{"type":["string","null"]},"description":{"type":["string","null"]},"quantity":{"type":["integer","null"]},"notes":{"type":["string","null"]}
+    }}}
+  }
+}

@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 
 /** Deterministic fixture adapter. Accepts labelled lines, not arbitrary natural language. */
 @Component
-@Profile("local")
+@Profile({"local", "demo"})
 public class LocalDemoOrderParser implements OrderExtractionPort {
     @Override public OrderExtractionResult extract(String message, ExtractionContext context) {
         Map<String,String> fields=new HashMap<>();

@@ -1,80 +1,66 @@
-# Mashro3 AI
+# Mashro3 AI · مشروع
 
-Java 25 / Spring Boot 4.0.8 small-business order desk.
+A local-first Arabic/English order desk for home businesses in Kuwait and the GCC.
+Turn a customer message into a draft, review missing details, approve the order and reload it later.
 
-## Run the local demo
-
-With JDK 25 and Docker Desktop installed, run from the project root:
-
-```powershell
-docker compose up -d
-```
-
-Before the first run, create the demo database once (skip if it already exists):
-
-```powershell
-docker compose exec postgres createdb -U mashro3ai mashro3ai_demo
-```
-
-Then build and start:
-
-```powershell
-.\mvnw.cmd clean test
-.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"
-```
-
-The local profile defaults to `mashro3ai_demo`, so it also works from a new terminal.
-`DB_URL` can override that default. Existing data in the original `mashro3ai` database
-is untouched; do not repair or rewrite its migration history to run this demo.
-
-Open **http://localhost:8080/**. The local profile binds to loopback. Flyway creates
-and validates the draft and order tables automatically, including the new V2 migration.
-For Linux/macOS, use `./mvnw` instead of `.\mvnw.cmd`.
-
-### Five-minute example
-
-1. Click **Extract draft** using the prefilled synthetic cookie order.
-2. Notice `delivery.address` is missing. Confirmation returns 422 until it is supplied.
-3. In the review JSON, replace `"address": null` with `"address": "Demo block 1, street 2"`.
-4. Click **Save changes**, then **Reload saved draft** to verify persistence.
-5. Click **Confirm order**. The server calculates **12.250 KWD** (2 × 4.500 + 3.250).
-6. Click **Reload confirmed order**, or refresh the page. The saved draft ID is kept locally.
-
-**The local extraction adapter is a deterministic labelled-text parser, not an AI model.**
-It exercises the provider boundary and full persistence workflow without external credentials.
-It accepts `name`, `phone`, `email`, `method` (DELIVERY/PICKUP), `area`, `address`,
-`date` (YYYY-MM-DD), and repeated `item: description | quantity | unit price` lines.
-It does not interpret arbitrary chat, relative dates, Arabic labels, or infer prices.
-Blank item quantity/price remain unknown and require review. Unknown labels are ignored;
-review the source and extracted fields. Business currency defaults to KWD.
-
-## Implemented API
-
-- POST `/api/v1/order-drafts` — manual creation, incomplete details allowed.
-- POST `/api/v1/order-drafts/extract` — local profile only, demo parser.
-- GET/PUT `/api/v1/order-drafts/{id}` — read and version-checked replacement.
-- POST `/api/v1/order-drafts/{id}/clarification` — draft text only; sends nothing.
-- POST `/api/v1/order-drafts/{id}/confirm` — completeness check and confirmation.
-- GET `/api/v1/orders/{id}` and GET `/api/v1/orders?page=0&size=20`.
-
-PUT requires the current version. Stale writes return 409. Confirm returns 201 initially,
-then 200 with the same order on replay, including when replaying an old expectedVersion.
-Confirmed drafts cannot be edited; their owned fields form the immutable order snapshot.
-Concurrent conflicting writes can return 409; reload and retry. Resources are business-scoped;
-missing or other-business IDs return 404. Confirmation requires name, phone, fulfillment
-method/date, at least one described item with quantity/price, and address/area for delivery.
-Totals are item totals only; delivery fees, tax and discounts are not modeled yet.
-
-## Validation
+## Run on Windows (JDK 25)
 
 ```powershell
 .\mvnw.cmd clean verify
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=demo"
 ```
 
-Tests use an isolated H2 database in PostgreSQL mode, execute Flyway migrations and Hibernate
-schema validation, and exercise extraction, persisted edits, stale versions, confirmation,
-replay and business isolation. PostgreSQL startup should also be checked with Docker locally.
+Open http://localhost:8080. No Docker, database installation, API key or Node build needed.
+The **demo** profile stores data in `data/mashro3ai.mv.db`. Stop the app before backing up that file.
+The existing **local** profile still uses PostgreSQL `mashro3ai_demo`; run `docker compose up -d` and create that database if needed.
+Do not change existing Flyway checksums; V3 adds extraction provenance without editing V1/V2.
+On macOS/Linux replace `.\mvnw.cmd` with `./mvnw`.
 
-Authentication and a real model adapter are pending. Use synthetic data in the local demo.
-Outside the local profile, configure DB_URL, DB_USERNAME, DB_PASSWORD and an authenticated
-CurrentBusinessProvider before running. Do not expose the demonstration publicly.
+## Enable real local AI
+
+Install Ollama from https://ollama.com/download/windows, open a new terminal, then:
+
+```powershell
+ollama pull qwen3:4b
+```
+
+Leave Ollama running. Choose **English chat** or **رسالة عربية**, then **Extract draft**.
+The app uses `/api/chat` with a JSON schema, temperature 0 and thinking disabled.
+On a CPU the first request may take several minutes. Timeout defaults to 180 seconds.
+Configure `OLLAMA_MODEL`, `OLLAMA_BASE_URL` or `OLLAMA_TIMEOUT_SECONDS` before starting Spring Boot.
+Use a local model to keep customer messages on your computer. Model installation requires internet.
+
+**Labelled demo parser** is a separate deterministic mode, explicitly not AI. It works without Ollama.
+It accepts name, phone, email, method, area, address, date (YYYY-MM-DD), and repeated
+`Item: description | quantity | price` lines. It does not understand free-form chat or Arabic.
+No silent fallback occurs if real AI fails. Invalid model data is rejected before persistence.
+
+## Three-minute demo
+
+1. Click **Labelled example**, then **Extract draft**. These are synthetic customer details.
+2. Notice the missing full address. Enter `Demo block 1, street 2, building 3`.
+3. Save the review. Reload it. The address survives because it is stored in the database.
+4. Draft a missing-details reply in English or Arabic. It is never sent automatically.
+5. Confirm. The server calculates **12.250 KWD** for two cookie boxes and one brownie box.
+6. Refresh the browser and open the order from Saved work.
+7. With Ollama installed, repeat using natural-language English or Arabic and explain catalogue pricing.
+
+## What is implemented
+
+- Java 25 / Spring Boot 4.0.8 modular monolith, REST `/api/v1`.
+- Real Ollama adapter, structured output schema and explicit model readiness status.
+- Versioned bilingual catalogue in `src/main/resources/catalog.json`; model output cannot set prices.
+- Editable customer, delivery, items and owner notes; missing-field checks and manual entry.
+- Durable extraction provenance, drafts and immutable confirmed orders; optimistic locking and replay-safe confirmation.
+- English/Arabic clarification templates, excluding owner-only price questions.
+- Saved draft/order pages with pagination; responsive UI with no external asset dependencies.
+- H2 file demo and PostgreSQL local profiles; Flyway migrations and CI tests.
+
+## Prototype boundary
+
+Single business, no authentication; bound to loopback. Do not expose this profile publicly.
+No WhatsApp integration, automatic sending, voice transcription, payments, stock tracking, tax or delivery fee calculation.
+Arabic model accuracy depends on model quality and requires owner review. This is not a production service.
+The web UI is English with Arabic input and Arabic reply support; it is not fully localized.
+
+See [submission brief](docs/submission.md), [code review guide](docs/code-review.md), and [API contracts](docs/api-contracts.md).

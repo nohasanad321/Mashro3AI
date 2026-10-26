@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 
 /** Local demonstration only; never accepts a business ID supplied by the client. */
 @Component
-@Profile("local")
+@Profile({"local", "demo"})
 public class DemoCurrentBusinessProvider implements CurrentBusinessProvider {
     private final UUID businessId;
     public DemoCurrentBusinessProvider(@Value("${mashro3.demo.business-id}") UUID businessId) {

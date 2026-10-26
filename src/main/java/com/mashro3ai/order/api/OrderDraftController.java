@@ -18,7 +18,8 @@ public class OrderDraftController {
     }
     @GetMapping("/order-drafts/{id}") public OrderDraftResponse get(@PathVariable UUID id) { return service.get(id); }
     @PutMapping("/order-drafts/{id}") public OrderDraftResponse update(@PathVariable UUID id,@Valid @RequestBody SaveOrderDraftRequest r) { return service.update(id,r); }
-    @PostMapping("/order-drafts/{id}/clarification") public ClarificationResponse clarification(@PathVariable UUID id) { return service.clarification(id); }
+    @GetMapping("/order-drafts") public OrderDraftService.DraftPage drafts(@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="20") int size) { return service.listDrafts(page,size); }
+    @PostMapping("/order-drafts/{id}/clarification") public ClarificationResponse clarification(@PathVariable UUID id,@RequestParam(defaultValue="en") String language) { return service.clarification(id,language); }
     @PostMapping("/order-drafts/{id}/confirm")
     public ResponseEntity<OrderResponse> confirm(@PathVariable UUID id,@Valid @RequestBody ConfirmOrderRequest r) {
         var result=service.confirm(id,r);
