@@ -1,0 +1,6 @@
+[
+  {"sku":"COOKIE-BOX","name":"Cookie box","arabicName":"علبة كوكيز","price":4.500,"aliases":["cookies","cookie box","علبة كوكيز","كوكيز"]},
+  {"sku":"BROWNIE-BOX","name":"Brownie box","arabicName":"علبة براونيز","price":3.250,"aliases":["brownies","brownie box","علبة براونيز","براونيز"]},
+  {"sku":"DATE-BOX","name":"Stuffed date box","arabicName":"علبة تمر محشي","price":5.000,"aliases":["stuffed dates","stuffed date box","تمر محشي","علبة تمر محشي"]},
+  {"sku":"MINI-CAKE","name":"Mini celebration cake","arabicName":"كيكة صغيرة","price":8.500,"aliases":["mini cake","mini celebration cake","كيكة صغيرة"]}
+]

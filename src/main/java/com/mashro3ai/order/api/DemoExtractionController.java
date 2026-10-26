@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 @RestController
-@Profile("local")
+@Profile({"local", "demo"})
 public class DemoExtractionController {
     private final DemoExtractionService service;
     public DemoExtractionController(DemoExtractionService service) { this.service=service; }
