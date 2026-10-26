@@ -1,0 +1,5 @@
+[
+ {"id":"delivery","title":"Delivery details / التوصيل","keywords":["delivery","address","توصيل","عنوان"],"text":"For delivery, collect the customer name, phone number, area, full address and requested date before confirming an order."},
+ {"id":"pricing","title":"Catalogue pricing / الأسعار","keywords":["price","pricing","cost","سعر","اسعار"],"text":"Unit prices come from the business catalogue. Unknown products require owner review and manual pricing. Totals exclude delivery fees and taxes."},
+ {"id":"approval","title":"Owner approval / التأكيد","keywords":["confirm","approve","order","تاكيد","طلب"],"text":"Extraction creates a draft only. The owner reviews the source message, corrects details and explicitly confirms. Confirmed drafts cannot be edited."}
+]

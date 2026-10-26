@@ -16,24 +16,14 @@ The existing **local** profile still uses PostgreSQL `mashro3ai_demo`; run `dock
 Do not change existing Flyway checksums; V3 adds extraction provenance without editing V1/V2.
 On macOS/Linux replace `.\mvnw.cmd` with `./mvnw`.
 
-## Enable real local AI
+## Fully offline retrieval
 
-Install Ollama from https://ollama.com/download/windows, open a new terminal, then:
+No model installation, embeddings, API keys or network calls are required at runtime.
+Choose **English chat** or **رسالة عربية** to retrieve catalogue products by their bilingual aliases and extract explicit details with rules. Prices come from the catalogue. Unknown quantities stay blank.
+The knowledge panel retrieves source-cited excerpts from `knowledge.json` and abstains when no passage matches.
+This is lexical retrieval and deterministic extraction, **not generative RAG**. It does not understand arbitrary language. Always compare the full source message: unsupported products, negation and repeated product mentions require manual review.
 
-```powershell
-ollama pull qwen3:4b
-```
-
-Leave Ollama running. Choose **English chat** or **رسالة عربية**, then **Extract draft**.
-The app uses `/api/chat` with a JSON schema, temperature 0 and thinking disabled.
-On a CPU the first request may take several minutes. Timeout defaults to 180 seconds.
-Configure `OLLAMA_MODEL`, `OLLAMA_BASE_URL` or `OLLAMA_TIMEOUT_SECONDS` before starting Spring Boot.
-Use a local model to keep customer messages on your computer. Model installation requires internet.
-
-**Labelled demo parser** is a separate deterministic mode, explicitly not AI. It works without Ollama.
-It accepts name, phone, email, method, area, address, date (YYYY-MM-DD), and repeated
-`Item: description | quantity | price` lines. It does not understand free-form chat or Arabic.
-No silent fallback occurs if real AI fails. Invalid model data is rejected before persistence.
+The labelled parser remains a separate mode accepting `Item: description | quantity | price` and ISO date fields.
 
 ## Three-minute demo
 
@@ -43,13 +33,13 @@ No silent fallback occurs if real AI fails. Invalid model data is rejected befor
 4. Draft a missing-details reply in English or Arabic. It is never sent automatically.
 5. Confirm. The server calculates **12.250 KWD** for two cookie boxes and one brownie box.
 6. Refresh the browser and open the order from Saved work.
-7. With Ollama installed, repeat using natural-language English or Arabic and explain catalogue pricing.
+7. Repeat using the English or Arabic chat example and explain catalogue pricing.
 
 ## What is implemented
 
 - Java 25 / Spring Boot 4.0.8 modular monolith, REST `/api/v1`.
-- Real Ollama adapter, structured output schema and explicit model readiness status.
-- Versioned bilingual catalogue in `src/main/resources/catalog.json`; model output cannot set prices.
+- Offline lexical catalogue retrieval, rule-based extraction and source-cited knowledge lookup.
+- Versioned bilingual catalogue in `src/main/resources/catalog.json`; chat text cannot set catalogue prices.
 - Editable customer, delivery, items and owner notes; missing-field checks and manual entry.
 - Durable extraction provenance, drafts and immutable confirmed orders; optimistic locking and replay-safe confirmation.
 - English/Arabic clarification templates, excluding owner-only price questions.
@@ -60,7 +50,7 @@ No silent fallback occurs if real AI fails. Invalid model data is rejected befor
 
 Single business, no authentication; bound to loopback. Do not expose this profile publicly.
 No WhatsApp integration, automatic sending, voice transcription, payments, stock tracking, tax or delivery fee calculation.
-Arabic model accuracy depends on model quality and requires owner review. This is not a production service.
+Rule-based extraction supports limited phrasing and requires owner review. This is not a production service.
 The web UI is English with Arabic input and Arabic reply support; it is not fully localized.
 
 See [submission brief](docs/submission.md), [code review guide](docs/code-review.md), and [API contracts](docs/api-contracts.md).

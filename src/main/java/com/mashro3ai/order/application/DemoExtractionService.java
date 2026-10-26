@@ -20,7 +20,7 @@ import org.springframework.web.server.ResponseStatusException;
 @Profile({"local", "demo"})
 public class DemoExtractionService {
     private final LocalDemoOrderParser parser;
-    private final OllamaOrderExtractor ollama;
+    private final LocalRetrievalOrderExtractor retrieval;
     private final CatalogService catalog;
     private final OrderDraftService drafts;
     private final CurrentBusinessProvider business;
@@ -28,22 +28,22 @@ public class DemoExtractionService {
     private final Currency currency;
     private final ZoneId timezone;
 
-    public DemoExtractionService(LocalDemoOrderParser parser, OllamaOrderExtractor ollama,
+    public DemoExtractionService(LocalDemoOrderParser parser, LocalRetrievalOrderExtractor retrieval,
             CatalogService catalog, OrderDraftService drafts, CurrentBusinessProvider business, Validator validator,
             @Value("${mashro3.demo.currency}") String currency, @Value("${mashro3.demo.timezone}") String timezone) {
-        this.parser = parser; this.ollama = ollama; this.catalog = catalog; this.drafts = drafts;
+        this.parser = parser; this.retrieval = retrieval; this.catalog = catalog; this.drafts = drafts;
         this.business = business; this.validator = validator;
         this.currency = Currency.getInstance(currency); this.timezone = ZoneId.of(timezone);
     }
 
     public OrderDraftResponse extract(ExtractOrderDraftRequest request) {
-        boolean useModel = "ollama".equals(request.engine());
+        boolean useModel = !"demo".equals(request.engine());
         CreateOrderDraftRequest candidate;
         var warnings = new ArrayList<ExtractionWarningDto>();
         try {
             var context = new ExtractionContext(business.currentBusinessId(),
                 request.referenceTimestamp() == null ? Instant.now() : request.referenceTimestamp(), timezone, currency);
-            var result = (useModel ? ollama : parser).extract(request.message(), context);
+            var result = (useModel ? retrieval : parser).extract(request.message(), context);
             result.warnings().forEach(w -> warnings.add(new ExtractionWarningDto(w.code(), w.path(), w.message())));
             var items = new ArrayList<OrderItemDraftDto>();
             for (var item : result.items()) {
@@ -58,12 +58,12 @@ public class DemoExtractionService {
                 new DeliveryDetailsDto(d.method() == null ? null : DeliveryMethod.valueOf(d.method()),
                     d.area(), d.address(), d.requestedDate(), d.originalDateText(), d.notes()), items, currency.getCurrencyCode(), null);
         } catch (IllegalArgumentException | java.time.format.DateTimeParseException ex) {
-            throw new ResponseStatusException(useModel ? HttpStatus.BAD_GATEWAY : HttpStatus.BAD_REQUEST,
-                useModel ? "The model returned invalid values. Nothing was saved; please retry or enter manually."
+            throw new ResponseStatusException(useModel ? HttpStatus.BAD_REQUEST : HttpStatus.BAD_REQUEST,
+                useModel ? "The local parser found invalid values. Nothing was saved; please retry or enter manually."
                     : "Use labelled lines, an ISO date, DELIVERY/PICKUP, and item: description | quantity | price");
         }
         if (!validator.validate(candidate).isEmpty()) throw new ResponseStatusException(
-            useModel ? HttpStatus.BAD_GATEWAY : HttpStatus.BAD_REQUEST,
+            useModel ? HttpStatus.BAD_REQUEST : HttpStatus.BAD_REQUEST,
             "Extracted fields failed validation. Nothing was saved; check field lengths, email, quantity and price.");
         return drafts.create(candidate, request.message(), warnings);
     }

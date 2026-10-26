@@ -11,7 +11,7 @@ import com.mashro3ai.order.domain.*;
 public record ExtractOrderDraftRequest(
     @NotBlank @Size(max = 10000) String message,
     Instant referenceTimestamp,
-    @Pattern(regexp = "demo|ollama") String engine
+    @Pattern(regexp = "demo|local") String engine
 ) {
     public ExtractOrderDraftRequest(String message, Instant referenceTimestamp) {
         this(message, referenceTimestamp, "demo");
