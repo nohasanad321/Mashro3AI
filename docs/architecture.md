@@ -1,53 +1,44 @@
 # Architecture decisions
 
-- One Spring Boot deployment and PostgreSQL database, feature-oriented packages.
-- REST controllers validate DTOs; application services coordinate domain rules and persistence.
-- AI providers sit behind an application interface; provider output never becomes the public DTO contract.
-- Model calls occur outside database transactions, with explicit timeouts. No AI SDK chosen yet.
-- AI extracts drafts; seller review precedes confirmation. Missing values remain null.
-- Drafts allow incomplete customer, delivery and item details. Confirmation completeness rules currently live in OrderDraftService.
-- All business-owned records carry businessId. Repositories must scope every query to the current business.
-- CurrentBusinessProvider currently has a local-only configured implementation. JWT phase adds Spring Security
-  token validation and business-membership authorization. Client-provided business IDs are never trusted.
-- UUID IDs, BigDecimal money, three decimal places for KWD. Currency codes need semantic validation in services.
-- Persist timestamps as Instant; requested delivery date as LocalDate. Resolve relative dates against reference time
-  and the business timezone; retain original text and flag ambiguity.
-- Entities use @Version; draft updates and confirmation compare expected versions.
-- Confirm transaction atomically creates one order per draft (unique constraint) and marks the draft confirmed.
-  Repeat confirmation returns that existing order; concurrent confirmation must not create duplicates.
-- Confirmed orders snapshot descriptions, customer/delivery details and prices.
-- Unit prices and line totals are server-validated; calculated totals are never accepted from clients.
-- Draft response validation findings are recomputed after edits. No guessed prices or confidence scores.
-- Database schema, entities, services, API controllers and model adapters will be implemented incrementally.
+## Current implementation
 
-## Delivery sequence
+Mashro3 AI is a feature-oriented Spring Boot modular monolith with one deployment. The default `demo` profile uses persistent H2; `local` uses PostgreSQL. Static browser assets are served by the same application.
 
-1. Foundation + DTO contracts (this commit).
-2. Manual draft creation/read with persistence and business scoping.
-3. Draft editing with version conflicts and validation findings.
-4. Real AI extraction adapter and Arabic/English examples.
-5. Clarification text and atomic repeat-safe confirmation.
-6. Mobile-friendly demo screen, setup rehearsal and submission materials.
-7. JWT authentication and business membership before real-user deployment.
+Controllers validate transport DTOs, application services coordinate work, and JPA entities and business-scoped repositories handle persistence. The `customer`, `identity`, and `reporting` packages currently contain placeholders.
 
-The October 26 hackathon milestone is a planning assumption pending official requirements.
+## Extraction and retrieval
 
-## Entity step
+`OrderExtractionPort` defines the extraction boundary and returns candidate data rather than public API DTOs. `DemoExtractionService` selects either the labelled-text parser or the offline catalogue matcher, resolves catalogue products/prices, validates candidates, and creates a draft.
 
-OrderDraft and OrderDraftItem are now mapped JPA entities in order.persistence. DraftCustomer and
-DraftDelivery are embedded snapshots. The collection retains item order and cascades persistence.
-Business IDs are supplied by the server-side service, never copied from a request.
-Draft replacement and confirmation are implemented. Confirmed drafts reject further changes.
+There are no model calls, embedding models, vector indexes, or external AI services. Catalogue alias matching and rules support selected Arabic/English input. Knowledge lookup separately returns keyword-matched passages from `knowledge.json` with source IDs, or no sources. Neither path generates text with a language model.
 
-V2 creates draft, item and confirmed-order tables. ConfirmedOrder references an immutable confirmed draft,
-whose owned customer, delivery and item values are the order snapshot; the confirmed draft cannot be edited.
-Unique draft_id prevents duplicate confirmed orders, and optimistic locking protects competing edits.
-H2 integration tests execute the migrations and validate mappings and the workflow. PostgreSQL and
-concurrent request behavior should also be verified in the deployment environment.
+Keep unknown values unset, preserve source messages and extraction warnings, and require owner review before confirmation. Unknown products, repeated mentions, negation, and unsupported phrasing are known retrieval limitations.
 
-## Current demonstration
+## Persistence and business rules
 
-The local demo implements manual drafts, deterministic labelled-text extraction behind OrderExtractionPort,
-review/update, clarification text, confirmation, order retrieval and pagination, plus a browser screen.
-A real AI provider, natural-language dates and Arabic parsing remain pending. Parser results pass DTO
-validation before persistence, and the original source message is retained across edits.
+- UUID identifiers; BigDecimal monetary values with up to three fractional digits on item inputs.
+- Persist timestamps as Instant and requested delivery dates as LocalDate. Resolve relative dates in the business timezone and retain original date text.
+- Business IDs come from `CurrentBusinessProvider`, not client requests. The current implementation returns one server-configured business; this is not authentication or multi-user authorization.
+- Repository lookups for business-owned records include the business ID.
+- Drafts allow incomplete data. Completeness findings are recomputed by `OrderDraftService` after review edits.
+- `OrderDraft` uses JPA `@Version`. Review updates and initial confirmation compare expected versions.
+- Confirmation creates one `ConfirmedOrder` per draft and marks the draft confirmed in one transaction. A unique `draft_id` constraint prevents duplicate order records. Repeat confirmation returns the existing order.
+- Confirmed drafts cannot be edited, so their customer, delivery, item, and price values serve as the order snapshot. The confirmed-order record references that draft.
+- Totals are calculated on the server from the confirmed item values. They exclude tax and delivery fees.
+- Catalogue prices ground natural-message extraction, but review accepts owner-entered prices. There is no price-edit permission layer.
+
+## Database profiles and migrations
+
+`demo` stores H2 data at `./data/mashro3ai.mv.db`, relative to the process working directory. `local` defaults to PostgreSQL `mashro3ai_demo`; Compose initially creates `mashro3ai`, so create the separate demo database or explicitly configure the intended database URL.
+
+Flyway migrations V1–V3 define the schema and extraction provenance. Hibernate validates the schema. Preserve applied migration files and add new versions for schema changes.
+
+Tests execute migrations and application flows against in-memory H2. PostgreSQL behavior and competing concurrent requests need additional environment-specific verification.
+
+## Next implementation: order fulfillment
+
+`OrderStatus` already lists `CONFIRMED`, `PREPARING`, `READY`, `COMPLETED`, and `CANCELLED`. These are currently vocabulary only: `ConfirmedOrder` has no persisted status/version, and the response mapper hard-codes status `CONFIRMED` and version `0`.
+
+The next increment should introduce a new migration for status, version, and update timestamp; define allowed transitions; expose a business-scoped update operation with expected-version checks; and show status controls in the UI. Keep the original confirmed customer/item/price snapshot unchanged while fulfillment status evolves.
+
+Follow with date/status filtering, editable business data, and stronger extraction rules. Before real-user deployment, add authentication and business-membership authorization, verify PostgreSQL and concurrency behavior, and establish operational controls. The prototype currently binds to loopback and is intended for synthetic local demonstration data.
